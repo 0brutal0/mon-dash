@@ -1,0 +1,70 @@
+name: Mon-dash Tweet Agent
+
+on:
+  schedule:
+    # Daily recap at 9:00 UTC
+    - cron: "0 9 * * *"
+    # Weekly thread on Mondays at 10:00 UTC
+    - cron: "0 10 * * 1"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Run mode"
+        required: true
+        default: "daily"
+        type: choice
+        options:
+          - daily
+          - weekly
+          - dry-run
+
+jobs:
+  tweet:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      # Restore previous snapshot for delta comparison
+      - uses: actions/cache@v4
+        with:
+          path: src/agent/snapshot.json
+          key: agent-snapshot-${{ github.ref }}
+          restore-keys: agent-snapshot-
+
+      - name: Run agent
+        env:
+          API_BASE_URL: ${{ secrets.API_BASE_URL }}
+          TWITTER_API_KEY: ${{ secrets.TWITTER_API_KEY }}
+          TWITTER_API_SECRET: ${{ secrets.TWITTER_API_SECRET }}
+          TWITTER_ACCESS_TOKEN: ${{ secrets.TWITTER_ACCESS_TOKEN }}
+          TWITTER_ACCESS_SECRET: ${{ secrets.TWITTER_ACCESS_SECRET }}
+        run: |
+          MODE=""
+          POST="--post"
+
+          # Determine mode from schedule or manual input
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            if [ "${{ inputs.mode }}" = "weekly" ]; then
+              MODE="--weekly"
+            elif [ "${{ inputs.mode }}" = "dry-run" ]; then
+              POST=""
+            fi
+          elif [ "${{ github.event.schedule }}" = "0 10 * * 1" ]; then
+            MODE="--weekly"
+          fi
+
+          npx tsx src/agent/run.ts $MODE $POST
+
+      # Save snapshot for next run
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: src/agent/snapshot.json
+          key: agent-snapshot-${{ github.ref }}-${{ github.run_id }}
