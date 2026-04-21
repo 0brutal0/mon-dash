@@ -1,72 +1,56 @@
 #!/usr/bin/env node
 
-// Mon-dash Twitter Agent
+// Mon-dash Telegram agent
 // Usage:
-//   npx tsx src/agent/run.ts                     # dry run (prints tweets, doesn't post)
-//   npx tsx src/agent/run.ts --post              # actually posts to Twitter
-//   npx tsx src/agent/run.ts --weekly            # compose weekly thread
-//   npx tsx src/agent/run.ts --weekly --post     # post weekly thread
+//   npx tsx src/agent/run.ts --morning            # dry-run morning stats
+//   npx tsx src/agent/run.ts --morning --send     # send morning stats to Telegram
+//   npx tsx src/agent/run.ts --evening            # dry-run news digest
+//   npx tsx src/agent/run.ts --evening --send     # send news digest to Telegram
 
-import { resolve } from "path";
-import { fetchSnapshot, loadSnapshot, saveSnapshot } from "./snapshot";
-import { composeDailyRecap, detectNotableMoves, checkTvlMilestone, composeWeeklyThread } from "./compose";
-import { publishEvent } from "./twitter";
-import type { AgentConfig, TweetEvent } from "./types";
-
-const config: AgentConfig = {
-  apiBaseUrl: process.env.API_BASE_URL || "http://localhost:3000",
-  snapshotPath: resolve(process.cwd(), "src/agent/snapshot.json"),
-  twitterApiKey: process.env.TWITTER_API_KEY,
-  twitterApiSecret: process.env.TWITTER_API_SECRET,
-  twitterAccessToken: process.env.TWITTER_ACCESS_TOKEN,
-  twitterAccessSecret: process.env.TWITTER_ACCESS_SECRET,
-  dryRun: !process.argv.includes("--post"),
-};
+import { fetchMorningStats, fetchEveningNews } from "./snapshot";
+import { composeMorningTweet, composeNewsDigest } from "./compose";
+import { sendTelegram, sendTweetBlock } from "./telegram";
+import type { TelegramConfig } from "./types";
 
 async function main() {
-  const isWeekly = process.argv.includes("--weekly");
+  const args = process.argv.slice(2);
+  const mode = args.includes("--evening") ? "evening" : "morning";
+  const dryRun = !args.includes("--send");
 
-  console.log(`[agent] Fetching data from ${config.apiBaseUrl}...`);
-  const current = await fetchSnapshot(config.apiBaseUrl);
-  console.log(`[agent] Got snapshot: TVL=${current.tvl}, Price=$${current.price}`);
+  const cfg: TelegramConfig = {
+    botToken: process.env.TELEGRAM_BOT_TOKEN ?? "",
+    chatId: process.env.TELEGRAM_CHAT_ID ?? "",
+    dryRun,
+  };
 
-  const previous = loadSnapshot(config.snapshotPath);
-  if (previous) {
-    console.log(`[agent] Previous snapshot from ${previous.timestamp}`);
+  if (!dryRun && (!cfg.botToken || !cfg.chatId)) {
+    console.error("[agent] TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID must be set when using --send");
+    process.exit(1);
+  }
+
+  console.log(`[agent] mode=${mode} dryRun=${dryRun}`);
+
+  if (mode === "morning") {
+    const stats = await fetchMorningStats();
+    console.log("[agent] stats:", stats);
+    const tweet = composeMorningTweet(stats);
+    if (!tweet) {
+      console.error("[agent] no stats available — skipping send");
+      process.exit(1);
+    }
+    await sendTweetBlock(tweet, cfg);
+    console.log(`[agent] morning tweet ${dryRun ? "previewed" : "sent"} (${tweet.length} chars)`);
   } else {
-    console.log(`[agent] No previous snapshot found — first run`);
+    const news = await fetchEveningNews(5);
+    console.log(`[agent] ${news.length} headlines in last 24h`);
+    const digest = composeNewsDigest(news);
+    if (!digest) {
+      console.error("[agent] no news in last 24h — skipping send");
+      return;
+    }
+    await sendTelegram(digest, cfg);
+    console.log(`[agent] news digest ${dryRun ? "previewed" : "sent"}`);
   }
-
-  const events: TweetEvent[] = [];
-
-  if (isWeekly) {
-    // Weekly thread mode
-    events.push(composeWeeklyThread(current, previous));
-  } else {
-    // Daily mode: recap + threshold alerts
-    events.push(composeDailyRecap(current));
-
-    // Notable moves (only if we have a previous snapshot to compare)
-    const moves = detectNotableMoves(current, previous);
-    events.push(...moves);
-
-    // Milestone checks
-    const milestone = checkTvlMilestone(current, previous);
-    if (milestone) events.push(milestone);
-  }
-
-  // Sort by priority (1 = highest)
-  events.sort((a, b) => a.priority - b.priority);
-
-  console.log(`\n[agent] ${events.length} event(s) to publish:\n`);
-
-  for (const event of events) {
-    await publishEvent(event, config);
-  }
-
-  // Save current snapshot for next comparison
-  saveSnapshot(config.snapshotPath, current);
-  console.log(`\n[agent] Snapshot saved. Done.`);
 }
 
 main().catch((err) => {

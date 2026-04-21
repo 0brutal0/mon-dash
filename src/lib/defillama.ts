@@ -21,6 +21,25 @@ export async function getChainTVL(): Promise<number | null> {
   }
 }
 
+export interface TVLHistoryPoint {
+  date: number;
+  tvl: number;
+}
+
+export async function getChainTVLHistory(): Promise<TVLHistoryPoint[]> {
+  try {
+    const res = await fetch(`${BASE}/v2/historicalChainTvl/Monad`, {
+      next: { revalidate: 3600 },
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    if (!Array.isArray(data)) return [];
+    return data.map((d: { date: number; tvl: number }) => ({ date: d.date, tvl: d.tvl }));
+  } catch {
+    return [];
+  }
+}
+
 export interface ProtocolTVL {
   name: string;
   category: string;
@@ -82,6 +101,7 @@ export async function getFeesData(): Promise<FeesData> {
 export interface DexVolumeData {
   dailyVolume: number | null;
   weeklyVolume: number | null;
+  change1d: number | null;
 }
 
 export async function getDexVolume(): Promise<DexVolumeData> {
@@ -89,14 +109,15 @@ export async function getDexVolume(): Promise<DexVolumeData> {
     const res = await fetch(`${BASE}/overview/dexs/Monad`, {
       next: { revalidate: 120 },
     });
-    if (!res.ok) return { dailyVolume: null, weeklyVolume: null };
+    if (!res.ok) return { dailyVolume: null, weeklyVolume: null, change1d: null };
     const data = await res.json();
     return {
       dailyVolume: data.total24h ?? null,
       weeklyVolume: data.total7d ?? null,
+      change1d: data.change_1d ?? null,
     };
   } catch {
-    return { dailyVolume: null, weeklyVolume: null };
+    return { dailyVolume: null, weeklyVolume: null, change1d: null };
   }
 }
 

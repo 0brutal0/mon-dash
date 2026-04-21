@@ -66,6 +66,37 @@ export interface CompetitorData {
   volume24h: number;
 }
 
+interface DerivativeTicker {
+  index_id?: string;
+  contract_type?: string;
+  expired_at?: number | null;
+  open_interest?: number | null;
+}
+
+export async function getMonOpenInterest(): Promise<number | null> {
+  try {
+    const res = await fetch(`${BASE}/derivatives?include_tickers=unexpired`, {
+      next: { revalidate: 300 },
+    });
+    if (!res.ok) return null;
+    const data: DerivativeTicker[] = await res.json();
+    if (!Array.isArray(data)) return null;
+    let total = 0;
+    let matched = 0;
+    for (const t of data) {
+      if (t.index_id !== "MON") continue;
+      if (t.expired_at != null) continue;
+      if (typeof t.open_interest === "number") {
+        total += t.open_interest;
+        matched++;
+      }
+    }
+    return matched > 0 ? total : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function getCompetitorPrices(): Promise<Record<string, CompetitorData>> {
   try {
     const ids = "solana,sui,aptos";

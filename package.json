@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "agent:morning": "tsx src/agent/run.ts --morning",
+    "agent:evening": "tsx src/agent/run.ts --evening"
   },
   "dependencies": {
     "next": "16.2.1",
@@ -21,6 +23,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.1",
     "tailwindcss": "^4",
+    "tsx": "^4.19.2",
     "typescript": "^5"
   }
 }

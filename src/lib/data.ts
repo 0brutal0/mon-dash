@@ -18,7 +18,7 @@ import {
   getConsensusValidatorIds,
 } from "./rpc";
 import { getDailyTxChart, getDailyActiveAddresses, getGasOracle, getRecentTokenTransfers } from "./etherscan";
-import { getMonadNews, getGeneralNews } from "./cryptopanic";
+import { getMonadNews, getGeneralNews } from "./news";
 import { getWormholeBridgeStats } from "./wormhole";
 import { formatUSD, formatNumber, formatTokenAmount, weiToGwei } from "./format";
 import * as C from "../data/constants";

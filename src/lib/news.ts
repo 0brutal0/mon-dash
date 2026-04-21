@@ -153,8 +153,19 @@ function extractTagAttr(xml: string, tag: string): string {
 function cleanTitle(title: string): string {
   // Google News appends " - Source Name" to titles, remove it
   const dashIdx = title.lastIndexOf(" - ");
-  if (dashIdx > 20) return title.slice(0, dashIdx);
-  return title;
+  const stripped = dashIdx > 20 ? title.slice(0, dashIdx) : title;
+  return decodeEntities(stripped);
+}
+
+function decodeEntities(s: string): string {
+  return s
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&#x27;/g, "'")
+    .replace(/&nbsp;/g, " ");
 }
 
 function formatPubDate(pubDate: string): string {

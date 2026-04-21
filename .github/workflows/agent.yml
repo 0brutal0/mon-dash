@@ -1,0 +1,51 @@
+name: Telegram agent
+
+on:
+  schedule:
+    # 16:00 Istanbul (UTC+3) = 13:00 UTC — morning stats
+    - cron: "0 13 * * *"
+    # 00:00 Istanbul (UTC+3) = 21:00 UTC — evening news digest
+    - cron: "0 21 * * *"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "morning or evening"
+        required: true
+        default: "morning"
+        type: choice
+        options:
+          - morning
+          - evening
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - run: npm ci
+
+      - name: Determine mode
+        id: mode
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            if [ "${{ github.event.schedule }}" = "0 13 * * *" ]; then
+              echo "flag=--morning" >> $GITHUB_OUTPUT
+            else
+              echo "flag=--evening" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "flag=--${{ github.event.inputs.mode }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run agent
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          ETHERSCAN_API_KEY: ${{ secrets.ETHERSCAN_API_KEY }}
+        run: node_modules/.bin/tsx src/agent/run.ts ${{ steps.mode.outputs.flag }} --send
