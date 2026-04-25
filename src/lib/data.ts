@@ -23,8 +23,11 @@ import { getValidatorRegistry } from "./validators-registry";
 import { getDailyTxChart, getDailyActiveAddresses, getGasOracle, getRecentTokenTransfers } from "./etherscan";
 import { getMonadNews, getGeneralNews } from "./news";
 import { getWormholeBridgeStats } from "./wormhole";
+import { getEcosystemData } from "./ecosystem";
 import { formatUSD, formatNumber, formatTokenAmount, weiToGwei } from "./format";
 import * as C from "../data/constants";
+
+export { getEcosystemData };
 
 function getProtocolUrl(name: string, url?: string | null) {
   return url || C.URLS.protocols?.[name.toLowerCase()] || null;

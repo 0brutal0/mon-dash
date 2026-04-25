@@ -41,6 +41,7 @@ import {
   getEconomyData,
   getStablecoinActivity,
   getMonadNewsFeed,
+  getEcosystemData,
 } from "@/lib/data";
 
 export default async function Home() {
@@ -61,6 +62,7 @@ export default async function Home() {
     economy,
     stablecoinActivity,
     monadNews,
+    ecosystem,
   ] = await Promise.all([
     getTickerData(),
     getSupplyData(),
@@ -78,6 +80,7 @@ export default async function Home() {
     getEconomyData(),
     getStablecoinActivity(),
     getMonadNewsFeed(),
+    getEcosystemData(),
   ]);
 
   return (
@@ -124,7 +127,7 @@ export default async function Home() {
 
             {/* Row 9: Competitors + Ecosystem */}
             <CompetitorsTable data={competitors} />
-            <EcosystemOverview />
+            <EcosystemOverview data={ecosystem} />
 
             {/* Row 10: Funding Strip */}
             <FundingPanel />
