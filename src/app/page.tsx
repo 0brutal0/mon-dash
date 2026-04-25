@@ -20,9 +20,8 @@ import LiquidStakingMap from "@/components/LiquidStakingMap";
 import CompetitorsTable from "@/components/CompetitorsTable";
 import EcosystemOverview from "@/components/EcosystemOverview";
 import FundingPanel from "@/components/FundingPanel";
-import StablecoinActivity from "@/components/StablecoinActivity";
-import NewsFeed from "@/components/NewsFeed";
-import MonadNewsFeed from "@/components/MonadNewsFeed";
+import DexEfficiency from "@/components/DexEfficiency";
+import LiveNewsSidebar from "@/components/LiveNewsSidebar";
 
 import {
   getTickerData,
@@ -39,7 +38,7 @@ import {
   getTxActivityData,
   getBridgeFlowsData,
   getEconomyData,
-  getStablecoinActivity,
+  getDexEfficiencyData,
   getMonadNewsFeed,
   getEcosystemData,
 } from "@/lib/data";
@@ -60,7 +59,7 @@ export default async function Home() {
     txActivity,
     bridgeFlows,
     economy,
-    stablecoinActivity,
+    dexEfficiency,
     monadNews,
     ecosystem,
   ] = await Promise.all([
@@ -78,7 +77,7 @@ export default async function Home() {
     getTxActivityData(),
     getBridgeFlowsData(),
     getEconomyData(),
-    getStablecoinActivity(),
+    getDexEfficiencyData(),
     getMonadNewsFeed(),
     getEcosystemData(),
   ]);
@@ -109,9 +108,9 @@ export default async function Home() {
             {/* Row 5: Supply Pressure */}
             <SupplyPressure data={supplyPressure} />
 
-            {/* Row 5b: Stablecoins Breakdown + Activity */}
+            {/* Row 5b: Stablecoins Breakdown + DEX Efficiency */}
             <StablecoinPanel data={stablecoins} />
-            <StablecoinActivity data={stablecoinActivity} />
+            <DexEfficiency data={dexEfficiency} />
 
             {/* Row 6: Validators + DeFi Treemap */}
             <ValidatorsTable data={validators} />
@@ -135,8 +134,7 @@ export default async function Home() {
         </div>
 
         <div id="news-sidebar">
-          <NewsFeed data={news} />
-          <MonadNewsFeed data={monadNews} />
+          <LiveNewsSidebar general={news} monad={monadNews} />
         </div>
       </div>
     </>

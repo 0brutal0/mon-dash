@@ -28,17 +28,21 @@ export default function Header({ data }: Props) {
   const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    setMounted(true);
+    const mountTimer = setTimeout(() => setMounted(true), 0);
 
     const poll = async () => {
       try {
-        const res = await fetch("/api/stats");
+        const res = await fetch("/api/ticker");
         if (!res.ok) return;
         const json = await res.json();
         const next: TickerData = json.ticker;
         if (!next) return;
 
-        setTicker(next);
+        setTicker((current) => ({
+          ...current,
+          ...next,
+          openInterest: next.openInterest ?? current.openInterest,
+        }));
 
         const prev = prevPriceRef.current;
         if (next.price !== prev) {
@@ -55,6 +59,7 @@ export default function Header({ data }: Props) {
 
     const interval = setInterval(poll, 60_000);
     return () => {
+      clearTimeout(mountTimer);
       clearInterval(interval);
       if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
     };

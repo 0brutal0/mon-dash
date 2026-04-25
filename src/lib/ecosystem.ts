@@ -97,7 +97,7 @@ function extractJsonArray(text: string, marker: string) {
 function extractFlightText(html: string) {
   const chunks: string[] = [];
 
-  for (const match of html.matchAll(/self\.__next_f\.push\((\[.*?\])\)<\/script>/gs)) {
+  for (const match of html.matchAll(/self\.__next_f\.push\((\[[\s\S]*?\])\)<\/script>/g)) {
     try {
       const value = JSON.parse(match[1]) as unknown[];
       if (typeof value[1] === "string") {

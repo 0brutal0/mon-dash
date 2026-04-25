@@ -4,9 +4,7 @@ import BarChart from "./BarChart";
 
 interface FeesProps {
   dailyFees: string;
-  dailyRevenue: string;
   annualizedFees: string;
-  annualizedRevenue: string;
   psRatio: string;
   pfRatio: string;
   feesTrend30d: number[];
@@ -36,16 +34,8 @@ export default function FeesRevenue({ data }: Props) {
             <span className="val">{d.dailyFees}</span>
           </div>
           <div className="data-item">
-            <span className="lbl">Daily Revenue</span>
-            <span className="val">{d.dailyRevenue}</span>
-          </div>
-          <div className="data-item">
             <span className="lbl">Ann. Fees</span>
             <span className="val text-cyan">{d.annualizedFees}</span>
-          </div>
-          <div className="data-item">
-            <span className="lbl">Ann. Revenue</span>
-            <span className="val text-green">{d.annualizedRevenue}</span>
           </div>
           <div className="data-item">
             <span className="lbl">P/S Ratio</span>

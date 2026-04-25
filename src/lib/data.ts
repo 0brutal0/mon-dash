@@ -20,11 +20,11 @@ import {
   getValidatorsByIds,
 } from "./rpc";
 import { getValidatorRegistry } from "./validators-registry";
-import { getDailyTxChart, getDailyActiveAddresses, getGasOracle, getRecentTokenTransfers } from "./etherscan";
+import { getDailyTxChart, getDailyActiveAddresses, getGasOracle } from "./etherscan";
 import { getMonadNews, getGeneralNews } from "./news";
 import { getWormholeBridgeStats } from "./wormhole";
 import { getEcosystemData } from "./ecosystem";
-import { formatUSD, formatNumber, formatTokenAmount, weiToGwei } from "./format";
+import { formatUSD, formatNumber, formatPct, formatTokenAmount, weiToGwei } from "./format";
 import * as C from "../data/constants";
 
 export { getEcosystemData };
@@ -35,13 +35,14 @@ function getProtocolUrl(name: string, url?: string | null) {
 
 // ─── Ticker / Header Data ────────────────────────────────────
 
-export async function getTickerData() {
+export async function getTickerData(options: { includeOpenInterest?: boolean } = {}) {
+  const includeOpenInterest = options.includeOpenInterest ?? true;
   const [market, openInterest] = await Promise.all([
     getMarketData(),
-    getMonOpenInterest(),
+    includeOpenInterest ? getMonOpenInterest() : Promise.resolve(null),
   ]);
   if (!market) return C.PRICE_DATA;
-  return {
+  const ticker = {
     price: market.price,
     change24h: market.change24h,
     change30d: market.change30d,
@@ -49,8 +50,10 @@ export async function getTickerData() {
     marketCap: formatUSD(market.marketCap),
     volume24h: formatUSD(market.volume24h),
     fdv: formatUSD(market.fdv),
-    openInterest: openInterest === null ? null : formatUSD(openInterest),
   };
+  return includeOpenInterest
+    ? { ...ticker, openInterest: openInterest === null ? null : formatUSD(openInterest) }
+    : ticker;
 }
 
 // ─── Supply Data ─────────────────────────────────────────────
@@ -195,18 +198,63 @@ export async function getFeesRevenue() {
   if (fees.dailyFees === null) return C.FEES_REVENUE;
 
   const annualizedFees = fees.dailyFees ? fees.dailyFees * 365 : null;
-  const annualizedRevenue = fees.dailyRevenue ? fees.dailyRevenue * 365 : null;
 
   return {
     dailyFees: formatUSD(fees.dailyFees),
-    dailyRevenue: formatUSD(fees.dailyRevenue),
     annualizedFees: formatUSD(annualizedFees),
-    annualizedRevenue: formatUSD(annualizedRevenue),
     psRatio: C.FEES_REVENUE.psRatio,
     pfRatio: C.FEES_REVENUE.pfRatio,
     feesTrend30d: C.FEES_REVENUE.feesTrend30d,
     dexVolume24h: formatUSD(dex.dailyVolume),
     dexVolume7d: formatUSD(dex.weeklyVolume),
+  };
+}
+
+// ─── DEX Efficiency ─────────────────────────────────────────
+
+function isDexCategory(category: string) {
+  const normalized = category.toLowerCase();
+  return normalized === "dex" || normalized === "dexs" || normalized === "dexes";
+}
+
+export async function getDexEfficiencyData() {
+  const [fees, dex, protocols] = await Promise.all([
+    getFeesData(),
+    getDexVolume(),
+    getProtocolsTVL(),
+  ]);
+
+  const dexProtocols = protocols.filter((p) => isDexCategory(p.category));
+  const fallbackDexProtocols = C.DEFI_PROTOCOLS
+    .filter((p) => isDexCategory(p.category))
+    .map((p) => ({
+      name: p.name,
+      category: p.category,
+      tvl: parseFloat(p.tvl.replace(/[$BM]/g, "")) * (p.tvl.includes("B") ? 1e9 : 1e6),
+      change7d: null,
+      url: getProtocolUrl(p.name),
+    }));
+  const displayProtocols = dexProtocols.length > 0 ? dexProtocols : fallbackDexProtocols;
+  const dexTvl = displayProtocols.reduce((sum, p) => sum + p.tvl, 0);
+  const dailyVolume = dex.dailyVolume ?? null;
+  const dailyFees = fees.dailyFees ?? null;
+  const volumeToTvl = dailyVolume !== null && dexTvl > 0 ? (dailyVolume / dexTvl) * 100 : null;
+  const feesToTvl = dailyFees !== null && dexTvl > 0 ? (dailyFees / dexTvl) * 100 : null;
+
+  return {
+    volume24h: formatUSD(dailyVolume),
+    volume7d: formatUSD(dex.weeklyVolume),
+    dexTvl: formatUSD(dexTvl),
+    volumeToTvl: formatPct(volumeToTvl, false),
+    fees24h: formatUSD(dailyFees),
+    feesToTvl: formatPct(feesToTvl, false),
+    volumeChange1d: dex.change1d,
+    topProtocols: displayProtocols.slice(0, 5).map((p) => ({
+      name: p.name,
+      tvl: formatUSD(p.tvl),
+      pct: dexTvl > 0 ? +((p.tvl / dexTvl) * 100).toFixed(1) : 0,
+      url: getProtocolUrl(p.name, p.url),
+    })),
   };
 }
 
@@ -257,71 +305,6 @@ export async function getStablecoinData() {
     total: formatUSD(total),
     assets,
     history: historyValues,
-  };
-}
-
-// ─── Stablecoin Activity (transfers) ─────────────────────────
-
-const STABLECOIN_CONTRACTS: Record<string, { address: string; decimals: number }> = {
-  USDC: { address: "0x754704Bc059F8C67012fEd69BC8A327a5aafb603", decimals: 6 },
-  USDT0: { address: "0xe7cd86e13AC4309349F30B3435a9d337750fC82D", decimals: 6 },
-  AUSD: { address: "0x00000000efe302beaa2b3e6e1b18d08d69a9012a", decimals: 6 },
-};
-
-export async function getStablecoinActivity() {
-  const transfers = await Promise.all(
-    Object.entries(STABLECOIN_CONTRACTS).map(async ([symbol, { address, decimals }]) => {
-      const txs = await getRecentTokenTransfers(address, 100);
-      return txs.map((tx) => ({
-        ...tx,
-        tokenSymbol: symbol,
-        tokenDecimal: String(decimals),
-      }));
-    })
-  );
-
-  const allTxs = transfers.flat().sort((a, b) => parseInt(b.timeStamp) - parseInt(a.timeStamp));
-
-  const ZERO = "0x0000000000000000000000000000000000000000";
-  let totalVolume = 0;
-  let mintVolume = 0;
-  let burnVolume = 0;
-  const transferCount = allTxs.length;
-  const largeTransfers: { time: string; symbol: string; amount: string; from: string; to: string; type: string; hash: string }[] = [];
-
-  for (const tx of allTxs) {
-    const dec = parseInt(tx.tokenDecimal) || 6;
-    const value = parseInt(tx.value) / Math.pow(10, dec);
-    totalVolume += value;
-
-    const isMint = tx.from === ZERO;
-    const isBurn = tx.to === ZERO;
-    if (isMint) mintVolume += value;
-    if (isBurn) burnVolume += value;
-
-    if (value >= 50000) {
-      const date = new Date(parseInt(tx.timeStamp) * 1000);
-      const timeStr = date.toISOString().slice(11, 19) + " UTC";
-      largeTransfers.push({
-        time: timeStr,
-        symbol: tx.tokenSymbol,
-        amount: formatUSD(value),
-        from: tx.from.slice(0, 6) + "..." + tx.from.slice(-4),
-        to: tx.to.slice(0, 6) + "..." + tx.to.slice(-4),
-        type: isMint ? "Mint" : isBurn ? "Burn" : "Transfer",
-        hash: tx.hash,
-      });
-    }
-  }
-
-  return {
-    totalVolume: formatUSD(totalVolume),
-    transferCount: formatNumber(transferCount),
-    mintVolume: formatUSD(mintVolume),
-    burnVolume: formatUSD(burnVolume),
-    netMint: formatUSD(mintVolume - burnVolume),
-    netMintPositive: mintVolume >= burnVolume,
-    largeTransfers: largeTransfers.slice(0, 6),
   };
 }
 

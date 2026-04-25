@@ -164,9 +164,7 @@ export const TVL_BREAKDOWN = {
 // ─── Fees & Revenue ──────────────────────────────────────────
 export const FEES_REVENUE = {
   dailyFees: "$54K",
-  dailyRevenue: "$1.86K",
   annualizedFees: "$19.7M",
-  annualizedRevenue: "$680K",
   psRatio: "363x",
   pfRatio: "156x",
   feesTrend30d: [

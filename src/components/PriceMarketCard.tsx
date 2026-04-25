@@ -1,12 +1,23 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { PRICE_DATA, URLS } from "@/data/constants";
 import { formatPct } from "@/lib/format";
 import type { ChartPoint } from "@/lib/coingecko";
 
+interface TickerData {
+  price: number;
+  change24h: number;
+  change30d?: number;
+  changeAbs: number;
+  marketCap: string;
+  volume24h: string;
+  fdv: string;
+  openInterest?: string | null;
+}
+
 interface Props {
-  data?: typeof PRICE_DATA;
+  data?: TickerData;
   chart?: ChartPoint[] | null;
 }
 
@@ -42,12 +53,12 @@ function getYForIndex(points: ChartPoint[], idx: number, H: number): number {
 }
 
 export default function PriceMarketCard({ data, chart }: Props) {
-  const d = data ?? PRICE_DATA;
-
+  const [tickerData, setTickerData] = useState<TickerData>(data ?? PRICE_DATA);
   const [range, setRange] = useState(RANGES[1]); // default 1W
   const [chartData, setChartData] = useState<ChartPoint[]>(chart ?? []);
   const [loading, setLoading] = useState(false);
   const [hover, setHover] = useState<{ idx: number; xPct: number } | null>(null);
+  const d = tickerData;
 
   const W = 1000, H = 200;
   const hasChart = chartData.length > 0;
@@ -55,8 +66,8 @@ export default function PriceMarketCard({ data, chart }: Props) {
     ? buildSVGPath(chartData, W, H)
     : { linePath: "", areaPath: "" };
 
-  const fetchChart = useCallback(async (days: number) => {
-    setLoading(true);
+  const fetchChart = useCallback(async (days: number, showLoading = true) => {
+    if (showLoading) setLoading(true);
     setHover(null);
     try {
       const res = await fetch(`/api/chart?days=${days}`);
@@ -64,7 +75,7 @@ export default function PriceMarketCard({ data, chart }: Props) {
     } catch {
       // keep current data on error
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   }, []);
 
@@ -72,6 +83,36 @@ export default function PriceMarketCard({ data, chart }: Props) {
     setRange(r);
     fetchChart(r.days);
   };
+
+  useEffect(() => {
+    const pollTicker = async () => {
+      try {
+        const res = await fetch("/api/ticker");
+        if (!res.ok) return;
+        const json = await res.json();
+        if (json.ticker) {
+          setTickerData((current) => ({
+            ...current,
+            ...json.ticker,
+            openInterest: json.ticker.openInterest ?? current.openInterest,
+          }));
+        }
+      } catch {
+        // keep the last ticker if refresh fails
+      }
+    };
+
+    const interval = setInterval(pollTicker, 60_000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchChart(range.days, false);
+    }, 2 * 60_000);
+
+    return () => clearInterval(interval);
+  }, [fetchChart, range.days]);
 
   const handleMouseMove = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
