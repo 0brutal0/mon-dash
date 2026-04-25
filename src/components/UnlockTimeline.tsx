@@ -11,18 +11,22 @@ export default function UnlockTimeline() {
       </div>
       <div className="panel-content">
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          {UNLOCK_SCHEDULE.allocations.map((a) => (
+          {UNLOCK_SCHEDULE.allocations.map((a) => {
+            const hasCliff = a.label === "Team" || a.label === "Investors";
+            const hasTransparentRemainder =
+              hasCliff || a.label === "Public Sale" || a.label === "Airdrop";
+            return (
             <div key={a.label} className="timeline-row">
               <span className="tl-label uppercase">{a.label}</span>
               <div className="tl-track">
-                {/* Cliff gap on the left (empty) */}
+                {/* Cliff gap on the left — grey for vesting allocations, transparent otherwise */}
                 {a.barLeft > 0 && (
                   <div
                     className="tl-bar"
                     style={{
                       width: `${a.barLeft}%`,
                       left: 0,
-                      background: "transparent",
+                      background: hasCliff ? "#333" : "transparent",
                     }}
                   />
                 )}
@@ -35,14 +39,14 @@ export default function UnlockTimeline() {
                     background: a.color,
                   }}
                 />
-                {/* Remaining unvested portion (light grey) */}
+                {/* Remaining unvested portion — transparent once the allocation is fully unlocked */}
                 {a.barLeft + a.barWidth < 100 && (
                   <div
                     className="tl-bar"
                     style={{
                       width: `${100 - a.barLeft - a.barWidth}%`,
                       left: `${a.barLeft + a.barWidth}%`,
-                      background: "#333",
+                      background: hasTransparentRemainder ? "transparent" : "#333",
                     }}
                   />
                 )}
@@ -54,7 +58,8 @@ export default function UnlockTimeline() {
                 <span className="text-muted" style={{ fontSize: 9 }}>{a.lockNote}</span>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
 
         <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, paddingTop: 6, borderTop: "1px solid #333", fontSize: 10 }}>

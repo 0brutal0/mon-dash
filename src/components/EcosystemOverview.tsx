@@ -14,7 +14,7 @@ const catColors: Record<string, string> = {
 
 export default function EcosystemOverview() {
   return (
-    <div className="panel col-5" style={{ height: 280 }}>
+    <div className="panel col-5" style={{ minHeight: 280 }}>
       <div className="panel-header">
         <div className="panel-title green">Ecosystem Overview</div>
       </div>

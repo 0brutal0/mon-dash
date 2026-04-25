@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import { NEWS_ITEMS } from "@/data/constants";
 
 interface NewsItem {
@@ -14,10 +17,16 @@ interface Props {
 
 export default function NewsFeed({ data }: Props) {
   const items = data ?? NEWS_ITEMS.map((n) => ({ ...n, url: "#" }));
+  const [collapsed, setCollapsed] = useState(false);
 
   return (
     <div id="right-panel">
-      <div
+      <button
+        type="button"
+        onClick={() => setCollapsed((c) => !c)}
+        aria-expanded={!collapsed}
+        aria-controls="right-panel-body"
+        className="feed-header-btn"
         style={{
           background: "#000",
           borderBottom: "1px solid #777",
@@ -25,6 +34,13 @@ export default function NewsFeed({ data }: Props) {
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
+          width: "100%",
+          border: "none",
+          borderRadius: 0,
+          cursor: "pointer",
+          color: "inherit",
+          fontFamily: "inherit",
+          textAlign: "left",
         }}
       >
         <div
@@ -38,49 +54,53 @@ export default function NewsFeed({ data }: Props) {
         >
           Global Alert Feed
         </div>
-        <div className="panel-meta">LIVE</div>
-      </div>
-
-      <div
-        style={{
-          padding: 12,
-          borderBottom: "1px solid #555",
-          background: "#000",
-        }}
-      >
-        <div className="text-muted uppercase" style={{ fontSize: 10, marginBottom: 4 }}>
-          Filter Query
-        </div>
-        <div
-          style={{
-            fontFamily: "var(--font-mono)",
-            color: "#8be9fd",
-            fontSize: 14,
-            borderBottom: "1px solid #8be9fd",
-            paddingBottom: 2,
-          }}
-        >
-          &gt; _
-        </div>
-      </div>
-
-      <div style={{ flex: 1, overflowY: "auto" }}>
-        {items.map((item, i) => (
-          <div key={i} className="news-item">
-            <div className="news-time">{item.time}</div>
-            {item.url && item.url !== "#" ? (
-              <a href={item.url} target="_blank" rel="noopener noreferrer" className="ext-link news-title" style={{ display: "block" }}>
-                {item.title}
-              </a>
-            ) : (
-              <div className="news-title">{item.title}</div>
-            )}
-            <div className={`news-source ${item.sourceColor}`}>
-              {item.source}
-            </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div className="panel-meta" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <span className="dot green blink" />
+            LIVE
           </div>
-        ))}
-      </div>
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 20,
+              height: 20,
+              fontSize: 16,
+              lineHeight: 1,
+              fontFamily: "var(--font-mono)",
+              color: "#8be9fd",
+              border: "1px solid #8be9fd",
+              borderRadius: 2,
+            }}
+            aria-hidden
+          >
+            {collapsed ? "+" : "—"}
+          </span>
+        </div>
+      </button>
+
+      {!collapsed && (
+        <div id="right-panel-body" style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+          <div style={{ flex: 1, overflowY: "auto" }}>
+            {items.map((item, i) => (
+              <div key={i} className="news-item">
+                <div className="news-time">{item.time}</div>
+                {item.url && item.url !== "#" ? (
+                  <a href={item.url} target="_blank" rel="noopener noreferrer" className="ext-link news-title" style={{ display: "block" }}>
+                    {item.title}
+                  </a>
+                ) : (
+                  <div className="news-title">{item.title}</div>
+                )}
+                <div className={`news-source ${item.sourceColor}`}>
+                  {item.source}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

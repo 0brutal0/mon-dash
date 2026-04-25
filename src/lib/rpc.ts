@@ -139,6 +139,8 @@ export async function estimateDailyBurn(): Promise<{ dailyBurnMON: number; perBl
 const SELECTORS = {
   getEpoch: "0x757991a8",
   getConsensusValidatorSet: "0xfb29b729",
+  getSnapshotValidatorSet: "0xde66a368",
+  getExecutionValidatorSet: "0x7cb074df",
   getValidator: "0x2b6d639a",
 };
 
@@ -183,16 +185,16 @@ export async function getEpoch(): Promise<EpochInfo | null> {
   }
 }
 
-// ─── Get Consensus Validator Set (paginated) ─────────────────
+// ─── Get Validator Set (paginated, shared decoder for all 3 sets) ─
 
-export async function getConsensusValidatorIds(): Promise<number[]> {
+async function getValidatorSetIds(selector: string): Promise<number[]> {
   const allIds: number[] = [];
   let startIndex = 0;
   let isDone = false;
 
   try {
     while (!isDone) {
-      const calldata = SELECTORS.getConsensusValidatorSet + encodeUint32(startIndex);
+      const calldata = selector + encodeUint32(startIndex);
       const result = await stakingCall(calldata);
       if (!result || result === "0x" || result.length < 130) break;
 
@@ -201,21 +203,17 @@ export async function getConsensusValidatorIds(): Promise<number[]> {
       isDone = parseInt(hex.slice(0, 64), 16) !== 0;
       const nextIndex = parseInt(hex.slice(64, 128), 16);
 
-      // Decode dynamic array: offset at position 2, then length, then elements
       const arrayOffset = parseInt(hex.slice(128, 192), 16) * 2;
-      const arrayStart = arrayOffset;
-      if (arrayStart >= hex.length) break;
-      const arrayLength = parseInt(hex.slice(arrayStart, arrayStart + 64), 16);
+      if (arrayOffset >= hex.length) break;
+      const arrayLength = parseInt(hex.slice(arrayOffset, arrayOffset + 64), 16);
 
       for (let i = 0; i < arrayLength; i++) {
-        const elemStart = arrayStart + 64 + i * 64;
+        const elemStart = arrayOffset + 64 + i * 64;
         if (elemStart + 64 > hex.length) break;
-        const valId = parseInt(hex.slice(elemStart, elemStart + 64), 16);
-        allIds.push(valId);
+        allIds.push(parseInt(hex.slice(elemStart, elemStart + 64), 16));
       }
 
       startIndex = nextIndex;
-      // Safety: prevent infinite loop
       if (allIds.length > 500) break;
     }
   } catch {
@@ -223,6 +221,16 @@ export async function getConsensusValidatorIds(): Promise<number[]> {
   }
 
   return allIds;
+}
+
+export function getConsensusValidatorIds() {
+  return getValidatorSetIds(SELECTORS.getConsensusValidatorSet);
+}
+export function getSnapshotValidatorIds() {
+  return getValidatorSetIds(SELECTORS.getSnapshotValidatorSet);
+}
+export function getExecutionValidatorIds() {
+  return getValidatorSetIds(SELECTORS.getExecutionValidatorSet);
 }
 
 // ─── Get Validator Details ───────────────────────────────────
@@ -262,29 +270,28 @@ export async function getValidatorDetails(validatorId: number): Promise<Validato
   }
 }
 
+// ─── Fetch Validator Details for a List of IDs ───────────────
+
+export async function getValidatorsByIds(ids: number[]): Promise<ValidatorDetails[]> {
+  if (ids.length === 0) return [];
+  const BATCH_SIZE = 25;
+  const out: ValidatorDetails[] = [];
+  for (let i = 0; i < ids.length; i += BATCH_SIZE) {
+    const batch = ids.slice(i, i + BATCH_SIZE);
+    const results = await Promise.all(batch.map((id) => getValidatorDetails(id)));
+    for (const d of results) if (d !== null) out.push(d);
+  }
+  return out;
+}
+
 // ─── Get Top Validators ──────────────────────────────────────
 
 export async function getTopValidators(limit: number = 10): Promise<ValidatorDetails[]> {
   const ids = await getConsensusValidatorIds();
   if (ids.length === 0) return [];
-
-  // Fetch details in batches of 25 to avoid overwhelming the RPC
-  const fetchIds = ids.slice(0, Math.min(ids.length, 250));
-  const BATCH_SIZE = 25;
-  const valid: ValidatorDetails[] = [];
-
-  for (let i = 0; i < fetchIds.length; i += BATCH_SIZE) {
-    const batch = fetchIds.slice(i, i + BATCH_SIZE);
-    const results = await Promise.all(batch.map((id) => getValidatorDetails(id)));
-    for (const d of results) {
-      if (d !== null) valid.push(d);
-    }
-  }
-
-  // Sort by stake descending
-  valid.sort((a, b) => (b.stake > a.stake ? 1 : b.stake < a.stake ? -1 : 0));
-
-  return valid.slice(0, limit);
+  const details = await getValidatorsByIds(ids.slice(0, Math.min(ids.length, 250)));
+  details.sort((a, b) => (b.stake > a.stake ? 1 : b.stake < a.stake ? -1 : 0));
+  return details.slice(0, limit);
 }
 
 // ─── ERC-20 Total Supply ─────────────────────────────────────

@@ -44,3 +44,12 @@ export function formatTokenAmount(value: number | null | undefined): string {
 export function weiToGwei(wei: bigint): string {
   return (Number(wei) / 1e9).toFixed(4);
 }
+
+/**
+ * Short UTC date label ("Apr 21") for `daysAgo` days before now.
+ */
+export function dayLabel(daysAgo: number, now: Date = new Date()): string {
+  const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  d.setUTCDate(d.getUTCDate() - daysAgo);
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+}

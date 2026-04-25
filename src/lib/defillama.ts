@@ -1,6 +1,26 @@
 const BASE = "https://api.llama.fi";
 const STABLECOINS_BASE = "https://stablecoins.llama.fi";
 
+function cleanProtocolUrl(url?: string | null) {
+  if (!url) return null;
+
+  let cleaned = url.trim().replace(/\/(?:referral|r)(?:\/[^/?#]*)*\/?(?=([?#]|$))/i, "");
+
+  try {
+    const parsed = new URL(cleaned);
+    for (const key of Array.from(parsed.searchParams.keys())) {
+      if (/^referral(?:_code)?$/i.test(key)) {
+        parsed.searchParams.delete(key);
+      }
+    }
+    cleaned = parsed.toString();
+  } catch {
+    // Keep the path-only cleanup for malformed upstream URLs.
+  }
+
+  return cleaned || null;
+}
+
 // ─── TVL ─────────────────────────────────────────────────────
 
 export interface ChainTVL {
@@ -50,7 +70,7 @@ export interface ProtocolTVL {
 
 export async function getProtocolsTVL(): Promise<ProtocolTVL[]> {
   try {
-    const res = await fetch(`${BASE}/protocols`, { next: { revalidate: 120 }, cache: "no-store" });
+    const res = await fetch(`${BASE}/protocols`, { cache: "no-store" });
     if (!res.ok) return [];
     const protocols = await res.json();
     return protocols
@@ -62,7 +82,7 @@ export async function getProtocolsTVL(): Promise<ProtocolTVL[]> {
         category: p.category ?? "Other",
         tvl: p.chainTvls?.["Monad"] ?? 0,
         change7d: p.change_7d ?? null,
-        url: p.url ?? null,
+        url: cleanProtocolUrl(p.url),
       }))
       .filter((p: ProtocolTVL) => p.tvl > 0)
       .sort((a: ProtocolTVL, b: ProtocolTVL) => b.tvl - a.tvl);

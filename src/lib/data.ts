@@ -1,4 +1,4 @@
-import { getMarketData, getPriceChart, getCompetitorPrices } from "./coingecko";
+import { getMarketData, getPriceChart, getCompetitorPrices, getMonOpenInterest } from "./coingecko";
 import {
   getChainTVL,
   getProtocolsTVL,
@@ -14,27 +14,39 @@ import {
   getGasPrice,
   estimateDailyBurn,
   getEpoch,
-  getTopValidators,
   getConsensusValidatorIds,
+  getSnapshotValidatorIds,
+  getExecutionValidatorIds,
+  getValidatorsByIds,
 } from "./rpc";
+import { getValidatorRegistry } from "./validators-registry";
 import { getDailyTxChart, getDailyActiveAddresses, getGasOracle, getRecentTokenTransfers } from "./etherscan";
 import { getMonadNews, getGeneralNews } from "./news";
 import { getWormholeBridgeStats } from "./wormhole";
 import { formatUSD, formatNumber, formatTokenAmount, weiToGwei } from "./format";
 import * as C from "../data/constants";
 
+function getProtocolUrl(name: string, url?: string | null) {
+  return url || C.URLS.protocols?.[name.toLowerCase()] || null;
+}
+
 // ─── Ticker / Header Data ────────────────────────────────────
 
 export async function getTickerData() {
-  const market = await getMarketData();
+  const [market, openInterest] = await Promise.all([
+    getMarketData(),
+    getMonOpenInterest(),
+  ]);
   if (!market) return C.PRICE_DATA;
   return {
     price: market.price,
     change24h: market.change24h,
+    change30d: market.change30d,
     changeAbs: +(market.price * (market.change24h / 100)).toFixed(4),
     marketCap: formatUSD(market.marketCap),
     volume24h: formatUSD(market.volume24h),
     fdv: formatUSD(market.fdv),
+    openInterest: openInterest === null ? null : formatUSD(openInterest),
   };
 }
 
@@ -124,19 +136,28 @@ export async function getTVLData() {
     "#ff6e6e", "#e2a8ff", "#ff8b3d", "#87ceeb", "#dda0dd",
   ];
 
-  const top10 = protocols.slice(0, 10);
+  const displayProtocols = protocols.length > 0 ? protocols : C.DEFI_PROTOCOLS.map((p) => ({
+    name: p.name,
+    category: p.category,
+    tvl: parseFloat(p.tvl.replace(/[$BM]/g, "")) * (p.tvl.includes("B") ? 1e9 : 1e6),
+    change7d: null,
+    url: getProtocolUrl(p.name),
+  }));
+  const displayTotalTVL = totalTVL ?? displayProtocols.reduce((sum, p) => sum + p.tvl, 0);
+
+  const top10 = displayProtocols.slice(0, 10);
 
   const mappedProtocols = top10.map((p, i) => ({
     name: p.name,
     category: p.category,
     tvl: formatUSD(p.tvl),
-    pct: totalTVL ? +((p.tvl / totalTVL) * 100).toFixed(1) : 0,
+    pct: displayTotalTVL ? +((p.tvl / displayTotalTVL) * 100).toFixed(1) : 0,
     color: PROTOCOL_PALETTE[i % PROTOCOL_PALETTE.length],
-    url: p.url ?? null,
+    url: getProtocolUrl(p.name, p.url),
   }));
 
   const catMap = new Map<string, { name: string; value: number; color: string }>();
-  for (const p of protocols) {
+  for (const p of displayProtocols) {
     const cat = p.category;
     const existing = catMap.get(cat);
     const color = categoryColors[cat] ?? "#555";
@@ -152,12 +173,12 @@ export async function getTVLData() {
     .map((c) => ({
       name: c.name,
       value: formatUSD(c.value),
-      pct: totalTVL ? +((c.value / totalTVL) * 100).toFixed(1) : 0,
+      pct: displayTotalTVL ? +((c.value / displayTotalTVL) * 100).toFixed(1) : 0,
       color: c.color,
     }));
 
   return {
-    total: formatUSD(totalTVL),
+    total: formatUSD(displayTotalTVL),
     byCategory,
     protocols: mappedProtocols,
   };
@@ -180,7 +201,7 @@ export async function getFeesRevenue() {
     annualizedRevenue: formatUSD(annualizedRevenue),
     psRatio: C.FEES_REVENUE.psRatio,
     pfRatio: C.FEES_REVENUE.pfRatio,
-    feesTrend14d: C.FEES_REVENUE.feesTrend14d,
+    feesTrend30d: C.FEES_REVENUE.feesTrend30d,
     dexVolume24h: formatUSD(dex.dailyVolume),
     dexVolume7d: formatUSD(dex.weeklyVolume),
   };
@@ -221,7 +242,7 @@ export async function getStablecoinData() {
       name: a.symbol,
       amount: formatUSD(a.circulating),
       pct: total > 0 ? +((a.circulating / total) * 100).toFixed(1) : 0,
-      change30d: change ? +change.changePct.toFixed(1) : null,
+      change30d: change ? +change.changePct.toFixed(2) : null,
       source,
     };
   });
@@ -262,8 +283,8 @@ export async function getStablecoinActivity() {
   let totalVolume = 0;
   let mintVolume = 0;
   let burnVolume = 0;
-  let transferCount = allTxs.length;
-  const largeTransfers: { time: string; symbol: string; amount: string; from: string; to: string; type: string }[] = [];
+  const transferCount = allTxs.length;
+  const largeTransfers: { time: string; symbol: string; amount: string; from: string; to: string; type: string; hash: string }[] = [];
 
   for (const tx of allTxs) {
     const dec = parseInt(tx.tokenDecimal) || 6;
@@ -285,6 +306,7 @@ export async function getStablecoinActivity() {
         from: tx.from.slice(0, 6) + "..." + tx.from.slice(-4),
         to: tx.to.slice(0, 6) + "..." + tx.to.slice(-4),
         type: isMint ? "Mint" : isBurn ? "Burn" : "Transfer",
+        hash: tx.hash,
       });
     }
   }
@@ -379,52 +401,61 @@ export async function getCompetitorsData() {
 
 // ─── Validators ──────────────────────────────────────────────
 
-// Known validator names — the precompile only returns addresses, not names
-// Populated from Monadscan / community registries
-const VALIDATOR_NAMES: Record<string, string> = {
-  "0x0000000000000000000000000000000000002000": "Monad Foundation",
-  "0x98a3c6e73f7e0a4b8e4b8b9b5b5e5c5d5f5a5b5": "P2P.org",
-  "0x8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b": "Figment",
-  "0x2b1a4c3d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b": "Chorus One",
-  "0x3d7b2e4f5a6b8c9d0e1f2a3b4c5d6e7f8a9b0c1d": "Everstake",
-  "0x1f8e3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f": "Imperator",
-  "0x5e2b9c0d1e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b": "Kiln",
-  "0x7a3c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c": "Nansen",
-  "0x4b6d5e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d": "Stakin",
-  "0x6f1a9b0c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a": "Blockdaemon",
-  "0x2c8f4d5e6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d": "Coinbase Cloud",
-  "0xd41c057fd1c78805aac12b0a94a405c0461a6fbb": "Galaxy Digital",
-  "0xa1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0": "Paradigm",
-  "0xb2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1": "Jump Crypto",
-  "0xc3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2": "Hashkey Cloud",
-  "0xd4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3": "InfStones",
-  "0xe5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4": "Allnodes",
-  "0xf6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5": "Stakely",
-  "0xa7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6": "Luganodes",
-  "0xb8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7": "Staking Facilities",
-};
-
 export async function getValidatorsData() {
-  const [topVals, epoch] = await Promise.all([
-    getTopValidators(250),
+  const [consensusIds, snapshotIds, executionIds, epoch, registry] = await Promise.all([
+    getConsensusValidatorIds(),
+    getSnapshotValidatorIds(),
+    getExecutionValidatorIds(),
     getEpoch(),
+    getValidatorRegistry(),
   ]);
 
-  if (topVals.length === 0) {
-    return {
-      validators: C.VALIDATORS,
-      meta: C.VALIDATOR_META,
-    };
+  const consensusSet = new Set(consensusIds);
+  const snapshotSet = new Set(snapshotIds);
+  const allIds = Array.from(new Set([...consensusIds, ...snapshotIds, ...executionIds]));
+
+  if (allIds.length === 0) {
+    return { validators: C.VALIDATORS, meta: C.VALIDATOR_META };
   }
 
-  const totalStake = topVals.reduce((sum, v) => sum + v.stake, BigInt(0));
+  const details = await getValidatorsByIds(allIds);
+  details.sort((a, b) => (b.stake > a.stake ? 1 : b.stake < a.stake ? -1 : 0));
 
-  const validators = topVals.map((v, i) => {
+  // Nakamoto coefficient + top-10 share computed over the ACTIVE consensus set only
+  const consensusByStake = details
+    .filter((v) => consensusSet.has(v.id))
+    .sort((a, b) => (b.stake > a.stake ? 1 : b.stake < a.stake ? -1 : 0));
+  const consensusTotal = consensusByStake.reduce((s, v) => s + v.stake, BigInt(0));
+  const nakamoto = (() => {
+    if (consensusTotal === BigInt(0)) return C.VALIDATOR_META.nakamotoCoefficient;
+    const threshold = consensusTotal / BigInt(3); // > 1/3 breaks BFT
+    let running = BigInt(0);
+    for (let i = 0; i < consensusByStake.length; i++) {
+      running += consensusByStake[i].stake;
+      if (running > threshold) return i + 1;
+    }
+    return consensusByStake.length;
+  })();
+  const top10StakePct = consensusTotal > BigInt(0)
+    ? +(Number(consensusByStake.slice(0, 10).reduce((s, v) => s + v.stake, BigInt(0))) /
+        Number(consensusTotal) * 100).toFixed(1)
+    : C.VALIDATOR_META.top10StakePct;
+
+  const validators = details.map((v, i) => {
     const addr = v.authAddress;
     const shortAddr = addr.slice(0, 6) + "..." + addr.slice(-3);
-    const name = VALIDATOR_NAMES[addr.toLowerCase()] ?? shortAddr;
+    const meta = registry.get(v.id);
+    const name = meta?.name ?? C.VALIDATORS[i]?.name ?? shortAddr;
     const stakeMON = Number(v.stake) / 1e18;
-    const commPct = Number(v.commission) / 1e16; // stored as fraction of 1e18
+    const commPct = Number(v.commission) / 1e16; // commission stored as fraction of 1e18
+    const sharePct = consensusTotal > BigInt(0) && consensusSet.has(v.id)
+      ? +(Number(v.stake) / Number(consensusTotal) * 100).toFixed(2)
+      : 0;
+    const status = consensusSet.has(v.id)
+      ? "ACTIVE"
+      : snapshotSet.has(v.id)
+      ? "SNAPSHOT"
+      : "ELIGIBLE";
 
     return {
       rank: String(i + 1).padStart(2, "0"),
@@ -432,20 +463,18 @@ export async function getValidatorsData() {
       addr: shortAddr,
       fullAddr: addr,
       stake: formatTokenAmount(stakeMON),
-      uptime: "—", // not available from precompile
-      uptimeColor: "text-muted",
+      sharePct,
+      status,
+      website: meta?.website ?? null,
+      xUrl: meta?.x ?? null,
       comm: commPct.toFixed(0) + "%",
     };
   });
 
-  const top10StakePct = totalStake > BigInt(0)
-    ? +(Number(topVals.slice(0, 10).reduce((s, v) => s + v.stake, BigInt(0))) / Number(totalStake) * 100).toFixed(1)
-    : C.VALIDATOR_META.top10StakePct;
-
   return {
     validators,
     meta: {
-      nakamotoCoefficient: C.VALIDATOR_META.nakamotoCoefficient, // would need full set calc
+      nakamotoCoefficient: nakamoto,
       epochEnds: C.VALIDATOR_META.epochEnds,
       top10StakePct,
       currentEpoch: epoch?.epoch ?? C.ECONOMY_DATA.currentEpoch,
@@ -475,8 +504,8 @@ export async function getSupplyPressureData() {
 
 export async function getTxActivityData() {
   const now = new Date();
-  const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
-  const startDate = twoWeeksAgo.toISOString().slice(0, 10);
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const startDate = thirtyDaysAgo.toISOString().slice(0, 10);
   const endDate = now.toISOString().slice(0, 10);
 
   const [txChart, addressChart] = await Promise.all([
@@ -497,6 +526,7 @@ export async function getTxActivityData() {
   // Normalize bars to percentages
   const maxTx = Math.max(...txChart.map((t) => t.txCount));
   const txBars = txChart.map((t) => Math.round((t.txCount / maxTx) * 100));
+  const txValues = txChart.map((t) => formatNumber(t.txCount));
 
   return {
     dailyTx: formatNumber(latestTx.txCount),
@@ -506,7 +536,8 @@ export async function getTxActivityData() {
     activeAddrsDaily: latestAddr ? formatNumber(latestAddr.count) : C.TX_ACTIVITY.activeAddrsDaily,
     activeAddrsMonthly: C.TX_ACTIVITY.activeAddrsMonthly,
     newAddrsDaily: C.TX_ACTIVITY.newAddrsDaily,
-    txBars14d: txBars.length > 0 ? txBars : C.TX_ACTIVITY.txBars14d,
+    txBars30d: txBars.length > 0 ? txBars.slice(-30) : C.TX_ACTIVITY.txBars30d,
+    txValues30d: txValues.length > 0 ? txValues.slice(-30) : C.TX_ACTIVITY.txValues30d,
   };
 }
 

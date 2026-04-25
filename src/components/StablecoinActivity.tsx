@@ -5,6 +5,7 @@ interface LargeTransfer {
   from: string;
   to: string;
   type: string;
+  hash: string;
 }
 
 interface Props {
@@ -24,7 +25,7 @@ export default function StablecoinActivity({ data }: Props) {
   const d = data;
 
   return (
-    <div className="panel col-5" style={{ height: 280 }}>
+    <div className="panel col-5 scroll-panel" style={{ height: 280 }}>
       <div className="panel-header">
         <div className="panel-title">Stablecoin Activity</div>
         <div className="panel-meta">RECENT</div>
@@ -73,10 +74,31 @@ export default function StablecoinActivity({ data }: Props) {
                 </span>
                 <span className="bold" style={{ width: 40, flexShrink: 0 }}>{tx.symbol}</span>
                 <span className="text-cyan" style={{ flex: 1 }}>{tx.amount}</span>
-                <span className="text-muted" style={{ fontSize: 9 }}>{tx.from}→{tx.to}</span>
+                <a
+                  href={`https://monadscan.com/tx/${tx.hash}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="ext-link text-muted"
+                  style={{ fontSize: 9 }}
+                >
+                  {tx.from}→{tx.to}
+                </a>
               </div>
             ))}
           </>
+        )}
+        {d.largeTransfers.length === 0 && (
+          <div
+            className="text-muted uppercase"
+            style={{
+              borderTop: "1px solid #222",
+              fontSize: 10,
+              marginTop: 4,
+              paddingTop: 8,
+            }}
+          >
+            No recent large transfers
+          </div>
         )}
       </div>
     </div>

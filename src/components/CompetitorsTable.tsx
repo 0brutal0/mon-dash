@@ -8,7 +8,7 @@ export default function CompetitorsTable({ data }: Props) {
   const d = data ?? COMPETITORS;
 
   return (
-    <div className="panel col-7" style={{ height: 250 }}>
+    <div className="panel col-7 scroll-panel" style={{ height: 250 }}>
       <div className="panel-header">
         <div className="panel-title">MON vs L1 Competitors</div>
         <div className="panel-meta">BENCHMARK</div>

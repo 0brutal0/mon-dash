@@ -3,6 +3,7 @@ const BASE = "https://api.coingecko.com/api/v3";
 export interface MarketData {
   price: number;
   change24h: number;
+  change30d: number;
   marketCap: number;
   volume24h: number;
   fdv: number;
@@ -29,6 +30,7 @@ export async function getMarketData(): Promise<MarketData | null> {
     return {
       price: md.current_price?.usd ?? 0,
       change24h: md.price_change_percentage_24h ?? 0,
+      change30d: md.price_change_percentage_30d ?? 0,
       marketCap: md.market_cap?.usd ?? 0,
       volume24h: md.total_volume?.usd ?? 0,
       fdv: md.fully_diluted_valuation?.usd ?? 0,
@@ -76,7 +78,7 @@ interface DerivativeTicker {
 export async function getMonOpenInterest(): Promise<number | null> {
   try {
     const res = await fetch(`${BASE}/derivatives?include_tickers=unexpired`, {
-      next: { revalidate: 300 },
+      cache: "no-store",
     });
     if (!res.ok) return null;
     const data: DerivativeTicker[] = await res.json();

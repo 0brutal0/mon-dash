@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useMemo } from "react";
 import { STABLECOINS, URLS } from "@/data/constants";
 
 interface StablecoinAsset {
@@ -50,7 +50,7 @@ export default function StablecoinPanel({ data }: Props) {
     history: [],
   };
 
-  const history = d.history ?? [];
+  const history = useMemo(() => d.history ?? [], [d.history]);
   const hasChart = history.length >= 2;
   const svgWidth = 600;
   const svgHeight = 200;
@@ -176,8 +176,8 @@ export default function StablecoinPanel({ data }: Props) {
               <tr>
                 <th>Asset</th>
                 <th>Amount</th>
-                <th className="right" style={{ width: 65 }}>Share</th>
-                <th className="right" style={{ width: 70 }}>30d</th>
+                <th className="right" style={{ width: 82 }}>Share</th>
+                <th className="right" style={{ width: 88 }}>30d</th>
               </tr>
             </thead>
             <tbody>
@@ -191,11 +191,11 @@ export default function StablecoinPanel({ data }: Props) {
                     )}
                   </td>
                   <td>{a.amount}</td>
-                  <td className="right text-muted">{a.pct.toFixed(1)}%</td>
-                  <td className="right">
+                  <td className="right text-muted" style={{ overflow: "visible", textOverflow: "clip" }}>{a.pct.toFixed(2)}%</td>
+                  <td className="right" style={{ overflow: "visible", textOverflow: "clip" }}>
                     {a.change30d != null ? (
                       <span className={a.change30d >= 0 ? "text-green" : "text-red"}>
-                        {a.change30d >= 0 ? "+" : ""}{a.change30d.toFixed(1)}%
+                        {a.change30d >= 0 ? "+" : ""}{a.change30d.toFixed(2)}%
                       </span>
                     ) : (
                       <span className="text-muted">—</span>

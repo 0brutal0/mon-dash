@@ -15,7 +15,7 @@ export default function BridgeFlows({ data }: Props) {
   const d = data ?? BRIDGE_FLOWS;
 
   return (
-    <div className="panel col-5" style={{ height: 280 }}>
+    <div className="panel col-5" style={{ minHeight: 280 }}>
       <div className="panel-header">
         <div className="panel-title">Bridge Flows (7D)</div>
         <div className="panel-meta">

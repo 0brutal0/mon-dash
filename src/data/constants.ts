@@ -22,6 +22,9 @@ export const URLS = {
     "aave v3": "https://aave.com",
     "aave": "https://aave.com",
     "upshift": "https://upshift.finance",
+    "steakhouse": "https://www.steakhouse.financial/",
+    "steakhouse finance": "https://www.steakhouse.financial/",
+    "steakhouse financial": "https://www.steakhouse.financial/",
   } as Record<string, string>,
   bridges: {
     Wormhole: "https://portalbridge.com",
@@ -39,8 +42,8 @@ export const URLS = {
     USDT: "0xe7cd86e13AC4309349F30B3435a9d337750fC82D",
   } as Record<string, string>,
   funding: {
-    seriesA: "https://www.coindesk.com/business/2024/04/09/monad-labs-raises-225m-in-funding-round-led-by-paradigm",
-    seed: "https://www.coindesk.com/business/2023/02/14/monad-labs-raises-19m-in-seed-funding-led-by-dragonfly-capital",
+    seriesA: "https://www.coindesk.com/business/2024/04/09/blockchain-developer-monad-labs-raises-225m-led-by-paradigm",
+    seed: "https://www.coindesk.com/business/2023/02/14/crypto-startup-monad-labs-aims-to-create-next-ethereum-killer-after-raising-19m",
   },
 };
 
@@ -72,7 +75,11 @@ export const STAKING_DATA = {
   minDelegation: "10 MON",
   unbondingPeriod: "5.5h",
   delegationFlow7d: "+12.4M",
-  aprHistory: [11.2, 11.8, 12.1, 12.4, 12.0, 12.6, 12.8],
+  aprHistory30d: [
+    10.9, 11.1, 11.0, 11.2, 11.4, 11.3, 11.5, 11.7, 11.6, 11.8,
+    11.9, 11.7, 12.0, 12.1, 11.9, 12.2, 12.3, 12.1, 12.4, 12.5,
+    12.3, 12.4, 12.6, 12.5, 12.7, 12.6, 12.8, 12.7, 12.9, 12.8,
+  ],
 };
 
 // ─── Economy ─────────────────────────────────────────────────
@@ -90,7 +97,11 @@ export const ECONOMY_DATA = {
 // ─── Volume ──────────────────────────────────────────────────
 export const VOLUME_DATA = {
   avgDailyVol: "$1.82B",
-  dailyBars: [40, 60, 80, 50, 90, 100, 70],
+  dailyBars30d: [
+    42, 48, 45, 51, 56, 52, 60, 58, 63, 67,
+    61, 65, 72, 69, 74, 71, 78, 82, 76, 80,
+    85, 88, 84, 91, 95, 89, 93, 100, 96, 98,
+  ],
 };
 
 // ─── Network ─────────────────────────────────────────────────
@@ -106,16 +117,16 @@ export const NETWORK_DATA = {
 
 // ─── Validators ──────────────────────────────────────────────
 export const VALIDATORS = [
-  { rank: "01", name: "P2P.org", addr: "0x9C...4D1", stake: "18.5M", uptime: "100%", uptimeColor: "text-green", comm: "3%" },
-  { rank: "02", name: "Figment", addr: "0x8A...9F2", stake: "14.2M", uptime: "100%", uptimeColor: "text-green", comm: "5%" },
-  { rank: "03", name: "ChorusOne", addr: "0x2B...1A4", stake: "12.8M", uptime: "99.9%", uptimeColor: "text-green", comm: "5%" },
-  { rank: "04", name: "Everstake", addr: "0x3D...7B2", stake: "11.4M", uptime: "99.9%", uptimeColor: "text-green", comm: "4%" },
-  { rank: "05", name: "Imperator", addr: "0x1F...8E3", stake: "9.1M", uptime: "99.8%", uptimeColor: "text-amber", comm: "4%" },
-  { rank: "06", name: "Kiln", addr: "0x5E...2B9", stake: "8.9M", uptime: "100%", uptimeColor: "text-green", comm: "5%" },
-  { rank: "07", name: "Nansen", addr: "0x7A...3C8", stake: "7.6M", uptime: "99.9%", uptimeColor: "text-green", comm: "5%" },
-  { rank: "08", name: "Stakin", addr: "0x4B...6D5", stake: "6.8M", uptime: "99.7%", uptimeColor: "text-amber", comm: "6%" },
-  { rank: "09", name: "Blockdaemon", addr: "0x6F...1A9", stake: "6.2M", uptime: "100%", uptimeColor: "text-green", comm: "5%" },
-  { rank: "10", name: "Coinbase Cloud", addr: "0x2C...8F4", stake: "5.5M", uptime: "99.9%", uptimeColor: "text-green", comm: "8%" },
+  { rank: "01", name: "P2P.org", addr: "0x9C...4D1", stake: "18.5M", sharePct: 14.2, status: "ACTIVE", comm: "3%" },
+  { rank: "02", name: "Figment", addr: "0x8A...9F2", stake: "14.2M", sharePct: 10.9, status: "ACTIVE", comm: "5%" },
+  { rank: "03", name: "ChorusOne", addr: "0x2B...1A4", stake: "12.8M", sharePct: 9.8, status: "ACTIVE", comm: "5%" },
+  { rank: "04", name: "Everstake", addr: "0x3D...7B2", stake: "11.4M", sharePct: 8.7, status: "ACTIVE", comm: "4%" },
+  { rank: "05", name: "Imperator", addr: "0x1F...8E3", stake: "9.1M", sharePct: 7.0, status: "ACTIVE", comm: "4%" },
+  { rank: "06", name: "Kiln", addr: "0x5E...2B9", stake: "8.9M", sharePct: 6.8, status: "ACTIVE", comm: "5%" },
+  { rank: "07", name: "Nansen", addr: "0x7A...3C8", stake: "7.6M", sharePct: 5.8, status: "ACTIVE", comm: "5%" },
+  { rank: "08", name: "Stakin", addr: "0x4B...6D5", stake: "6.8M", sharePct: 5.2, status: "ACTIVE", comm: "6%" },
+  { rank: "09", name: "Blockdaemon", addr: "0x6F...1A9", stake: "6.2M", sharePct: 4.8, status: "ACTIVE", comm: "5%" },
+  { rank: "10", name: "Coinbase Cloud", addr: "0x2C...8F4", stake: "5.5M", sharePct: 4.2, status: "ACTIVE", comm: "8%" },
 ];
 
 export const VALIDATOR_META = {
@@ -158,7 +169,11 @@ export const FEES_REVENUE = {
   annualizedRevenue: "$680K",
   psRatio: "363x",
   pfRatio: "156x",
-  feesTrend14d: [32, 38, 45, 41, 52, 48, 55, 62, 58, 51, 54, 60, 57, 54],
+  feesTrend30d: [
+    31, 34, 32, 38, 41, 39, 45, 43, 48, 46,
+    52, 49, 55, 58, 54, 61, 63, 59, 65, 62,
+    68, 66, 71, 69, 73, 70, 76, 74, 79, 77,
+  ],
 };
 
 // ─── Supply Pressure ─────────────────────────────────────────
@@ -215,7 +230,16 @@ export const TX_ACTIVITY = {
   activeAddrsDaily: "142K",
   activeAddrsMonthly: "1.2M",
   newAddrsDaily: "18.4K",
-  txBars14d: [45, 52, 48, 61, 55, 72, 68, 78, 82, 75, 88, 92, 85, 94],
+  txBars30d: [
+    44, 48, 46, 52, 50, 56, 54, 61, 58, 63,
+    66, 62, 69, 72, 68, 75, 78, 74, 81, 83,
+    79, 86, 88, 84, 91, 93, 89, 96, 94, 100,
+  ],
+  txValues30d: [
+    "1.1M", "1.2M", "1.2M", "1.3M", "1.3M", "1.4M", "1.3M", "1.5M", "1.4M", "1.5M",
+    "1.6M", "1.5M", "1.7M", "1.7M", "1.6M", "1.8M", "1.9M", "1.8M", "1.9M", "2.0M",
+    "1.9M", "2.1M", "2.1M", "2.0M", "2.2M", "2.2M", "2.1M", "2.3M", "2.3M", "2.4M",
+  ],
 };
 
 // ─── Ecosystem ───────────────────────────────────────────────

@@ -8,10 +8,9 @@ export default function SupplyCard({ data }: Props) {
   const d = data ?? SUPPLY_DATA;
 
   return (
-    <div className="panel col-4" style={{ height: 300 }}>
+    <div className="panel col-4" style={{ minHeight: 300 }}>
       <div className="panel-header">
         <div className="panel-title amber">Supply Metrics</div>
-        <div className="panel-meta">CTX: GLOBAL</div>
       </div>
       <div className="panel-content" style={{ justifyContent: "space-between" }}>
         <div className="data-grid" style={{ gridTemplateColumns: "1fr", gap: 16 }}>

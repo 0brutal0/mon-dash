@@ -14,10 +14,10 @@ interface Props {
 }
 
 export default function DefiTreemap({ protocols }: Props) {
-  const top8: Protocol[] = (protocols ?? DEFI_PROTOCOLS).slice(0, 8);
+  const top8: Protocol[] = (protocols && protocols.length > 0 ? protocols : DEFI_PROTOCOLS).slice(0, 8);
 
   return (
-    <div className="panel col-5" style={{ height: 300 }}>
+    <div className="panel col-5" style={{ minHeight: 300 }}>
       <div className="panel-header">
         <div className="panel-title green">DeFi TVL Distribution</div>
       </div>

@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Fira_Code } from "next/font/google";
 import "./globals.css";
 
@@ -10,6 +10,11 @@ const firaCode = Fira_Code({
 export const metadata: Metadata = {
   title: "MON_TERMINAL | Kinetic",
   description: "Comprehensive dashboard for Monad's MON token",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({

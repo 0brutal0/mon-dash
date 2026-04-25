@@ -68,7 +68,7 @@ function parsePubDate(formatted: string): number {
   const h = parseInt(match[3], 10);
   const m = parseInt(match[4], 10);
   if (mon == null) return 0;
-  let year = now.getUTCFullYear();
+  const year = now.getUTCFullYear();
   let ts = Date.UTC(year, mon, day, h, m);
   if (ts > now.getTime() + 3600_000) ts = Date.UTC(year - 1, mon, day, h, m);
   return ts;

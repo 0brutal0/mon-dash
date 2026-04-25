@@ -1,7 +1,11 @@
 import { STAKING_DATA } from "@/data/constants";
 
 export default function StakingCard() {
-  const maxApr = Math.max(...STAKING_DATA.aprHistory);
+  const minApr = Math.min(...STAKING_DATA.aprHistory30d);
+  const maxApr = Math.max(...STAKING_DATA.aprHistory30d);
+  const aprStart = STAKING_DATA.aprHistory30d[0];
+  const aprEnd = STAKING_DATA.aprHistory30d[STAKING_DATA.aprHistory30d.length - 1];
+  const aprChangeBps = Math.round((aprEnd - aprStart) * 100);
 
   return (
     <div className="panel col-4">
@@ -36,16 +40,16 @@ export default function StakingCard() {
           </div>
         </div>
 
-        <div style={{ marginTop: 10 }}>
-          <div className="text-muted uppercase" style={{ fontSize: 10, marginBottom: 4 }}>7D APR</div>
-          <div className="sparkline">
-            {STAKING_DATA.aprHistory.map((v, i) => (
-              <div
-                key={i}
-                className="spark-bar"
-                style={{ height: `${(v / maxApr) * 100}%`, background: "#50fa7b" }}
-              />
-            ))}
+        <div className="data-grid" style={{ marginTop: 12 }}>
+          <div className="data-item">
+            <span className="lbl">30D APY Range</span>
+            <span className="val">{minApr.toFixed(1)}-{maxApr.toFixed(1)}%</span>
+          </div>
+          <div className="data-item">
+            <span className="lbl">30D APY Change</span>
+            <span className={`val ${aprChangeBps >= 0 ? "text-green" : "text-red"}`}>
+              {aprChangeBps >= 0 ? "+" : ""}{aprChangeBps} bps
+            </span>
           </div>
         </div>
       </div>

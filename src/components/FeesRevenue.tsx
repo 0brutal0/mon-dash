@@ -1,4 +1,6 @@
 import { FEES_REVENUE } from "@/data/constants";
+import { dayLabel } from "@/lib/format";
+import BarChart from "./BarChart";
 
 interface FeesProps {
   dailyFees: string;
@@ -7,7 +9,7 @@ interface FeesProps {
   annualizedRevenue: string;
   psRatio: string;
   pfRatio: string;
-  feesTrend14d: number[];
+  feesTrend30d: number[];
   dexVolume24h?: string;
   dexVolume7d?: string;
 }
@@ -18,10 +20,12 @@ interface Props {
 
 export default function FeesRevenue({ data }: Props) {
   const d: FeesProps = data ?? FEES_REVENUE;
-  const maxFee = Math.max(...d.feesTrend14d);
+  const minFee = Math.min(...d.feesTrend30d);
+  const maxFee = Math.max(...d.feesTrend30d);
+  const feeRange = maxFee - minFee || 1;
 
   return (
-    <div className="panel col-5" style={{ height: 320 }}>
+    <div className="panel col-5" style={{ minHeight: 360 }}>
       <div className="panel-header">
         <div className="panel-title cyan">Chain Fees &amp; Revenue</div>
       </div>
@@ -65,15 +69,24 @@ export default function FeesRevenue({ data }: Props) {
           )}
         </div>
 
-        <div style={{ marginTop: 12 }}>
+        <div style={{ marginTop: 14 }}>
           <div className="text-muted uppercase" style={{ fontSize: 10, marginBottom: 4 }}>
-            14D Fee Trend
+            30D Fee Trend
           </div>
-          <div className="sparkline">
-            {d.feesTrend14d.map((v, i) => (
-              <div key={i} className="spark-bar" style={{ height: `${(v / maxFee) * 100}%` }} />
-            ))}
-          </div>
+          <BarChart
+            chartHeight={60}
+            barWidth={12}
+            barGap={4}
+            style={{ marginTop: 0 }}
+            bars={d.feesTrend30d.map((v, i) => {
+              const daysAgo = d.feesTrend30d.length - 1 - i;
+              return {
+                height: 20 + ((v - minFee) / feeRange) * 80,
+                color: "#8be9fd",
+                tip: `${dayLabel(daysAgo)}: ${v}`,
+              };
+            })}
+          />
         </div>
       </div>
     </div>
