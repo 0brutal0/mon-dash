@@ -195,18 +195,19 @@ export async function getTVLData() {
 export async function getFeesRevenue() {
   const [fees, dex] = await Promise.all([getFeesData(), getDexVolume()]);
 
-  if (fees.dailyFees === null) return C.FEES_REVENUE;
-
   const annualizedFees = fees.dailyFees ? fees.dailyFees * 365 : null;
 
   return {
-    dailyFees: formatUSD(fees.dailyFees),
-    annualizedFees: formatUSD(annualizedFees),
+    dailyFees: fees.dailyFees === null ? C.FEES_REVENUE.dailyFees : formatUSD(fees.dailyFees),
+    annualizedFees:
+      annualizedFees === null ? C.FEES_REVENUE.annualizedFees : formatUSD(annualizedFees),
     psRatio: C.FEES_REVENUE.psRatio,
     pfRatio: C.FEES_REVENUE.pfRatio,
     feesTrend30d: C.FEES_REVENUE.feesTrend30d,
+    feeTrend30d: fees.feesTrend30d.length > 0 ? fees.feesTrend30d : undefined,
     dexVolume24h: formatUSD(dex.dailyVolume),
     dexVolume7d: formatUSD(dex.weeklyVolume),
+    dexVolumeTrend30d: dex.volumeTrend30d.length > 0 ? dex.volumeTrend30d : undefined,
   };
 }
 

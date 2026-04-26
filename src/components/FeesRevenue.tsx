@@ -1,6 +1,11 @@
 import { FEES_REVENUE } from "@/data/constants";
-import { dayLabel } from "@/lib/format";
+import { dayLabel, formatUSD, unixDateLabel } from "@/lib/format";
 import BarChart from "./BarChart";
+
+interface HistoricalValue {
+  timestamp: number;
+  value: number;
+}
 
 interface FeesProps {
   dailyFees: string;
@@ -8,6 +13,7 @@ interface FeesProps {
   psRatio: string;
   pfRatio: string;
   feesTrend30d: number[];
+  feeTrend30d?: HistoricalValue[];
   dexVolume24h?: string;
   dexVolume7d?: string;
 }
@@ -18,9 +24,25 @@ interface Props {
 
 export default function FeesRevenue({ data }: Props) {
   const d: FeesProps = data ?? FEES_REVENUE;
-  const minFee = Math.min(...d.feesTrend30d);
-  const maxFee = Math.max(...d.feesTrend30d);
+  const feeTrend = d.feeTrend30d ?? [];
+  const feeValues = feeTrend.length ? feeTrend.map((p) => p.value) : d.feesTrend30d;
+  const minFee = Math.min(...feeValues);
+  const maxFee = Math.max(...feeValues);
   const feeRange = maxFee - minFee || 1;
+  const feeBars = feeTrend.length
+    ? feeTrend.map((p) => ({
+        height: 20 + ((p.value - minFee) / feeRange) * 80,
+        color: "#8be9fd",
+        tip: `${unixDateLabel(p.timestamp)}: ${formatUSD(p.value)}`,
+      }))
+    : d.feesTrend30d.map((v, i) => {
+        const daysAgo = d.feesTrend30d.length - 1 - i;
+        return {
+          height: 20 + ((v - minFee) / feeRange) * 80,
+          color: "#8be9fd",
+          tip: `${dayLabel(daysAgo)}: trend index ${v}`,
+        };
+      });
 
   return (
     <div className="panel col-5" style={{ minHeight: 360 }}>
@@ -68,14 +90,7 @@ export default function FeesRevenue({ data }: Props) {
             barWidth={12}
             barGap={4}
             style={{ marginTop: 0 }}
-            bars={d.feesTrend30d.map((v, i) => {
-              const daysAgo = d.feesTrend30d.length - 1 - i;
-              return {
-                height: 20 + ((v - minFee) / feeRange) * 80,
-                color: "#8be9fd",
-                tip: `${dayLabel(daysAgo)}: ${v}`,
-              };
-            })}
+            bars={feeBars}
           />
         </div>
       </div>

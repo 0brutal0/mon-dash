@@ -1,6 +1,28 @@
 const BASE = "https://api.llama.fi";
 const STABLECOINS_BASE = "https://stablecoins.llama.fi";
 
+export interface HistoricalValue {
+  timestamp: number;
+  value: number;
+}
+
+function getLastHistoricalValues(data: unknown, count = 30): HistoricalValue[] {
+  const chart = (data as { totalDataChart?: unknown }).totalDataChart;
+  if (!Array.isArray(chart)) return [];
+
+  return chart
+    .filter(
+      (point): point is [number, number] =>
+        Array.isArray(point) &&
+        typeof point[0] === "number" &&
+        typeof point[1] === "number" &&
+        Number.isFinite(point[0]) &&
+        Number.isFinite(point[1])
+    )
+    .map(([timestamp, value]) => ({ timestamp, value }))
+    .slice(-count);
+}
+
 function cleanProtocolUrl(url?: string | null) {
   if (!url) return null;
 
@@ -97,6 +119,7 @@ export interface FeesData {
   dailyFees: number | null;
   dailyRevenue: number | null;
   totalFees30d: number | null;
+  feesTrend30d: HistoricalValue[];
 }
 
 export async function getFeesData(): Promise<FeesData> {
@@ -104,15 +127,16 @@ export async function getFeesData(): Promise<FeesData> {
     const res = await fetch(`${BASE}/overview/fees/Monad?dataType=dailyFees`, {
       next: { revalidate: 120 },
     });
-    if (!res.ok) return { dailyFees: null, dailyRevenue: null, totalFees30d: null };
+    if (!res.ok) return { dailyFees: null, dailyRevenue: null, totalFees30d: null, feesTrend30d: [] };
     const data = await res.json();
     return {
       dailyFees: data.total24h ?? null,
       dailyRevenue: data.totalRevenue24h ?? null,
       totalFees30d: data.total30d ?? null,
+      feesTrend30d: getLastHistoricalValues(data),
     };
   } catch {
-    return { dailyFees: null, dailyRevenue: null, totalFees30d: null };
+    return { dailyFees: null, dailyRevenue: null, totalFees30d: null, feesTrend30d: [] };
   }
 }
 
@@ -122,6 +146,7 @@ export interface DexVolumeData {
   dailyVolume: number | null;
   weeklyVolume: number | null;
   change1d: number | null;
+  volumeTrend30d: HistoricalValue[];
 }
 
 export async function getDexVolume(): Promise<DexVolumeData> {
@@ -129,15 +154,16 @@ export async function getDexVolume(): Promise<DexVolumeData> {
     const res = await fetch(`${BASE}/overview/dexs/Monad`, {
       next: { revalidate: 120 },
     });
-    if (!res.ok) return { dailyVolume: null, weeklyVolume: null, change1d: null };
+    if (!res.ok) return { dailyVolume: null, weeklyVolume: null, change1d: null, volumeTrend30d: [] };
     const data = await res.json();
     return {
       dailyVolume: data.total24h ?? null,
       weeklyVolume: data.total7d ?? null,
       change1d: data.change_1d ?? null,
+      volumeTrend30d: getLastHistoricalValues(data),
     };
   } catch {
-    return { dailyVolume: null, weeklyVolume: null, change1d: null };
+    return { dailyVolume: null, weeklyVolume: null, change1d: null, volumeTrend30d: [] };
   }
 }
 

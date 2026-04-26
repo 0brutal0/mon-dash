@@ -53,3 +53,14 @@ export function dayLabel(daysAgo: number, now: Date = new Date()): string {
   d.setUTCDate(d.getUTCDate() - daysAgo);
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 }
+
+/**
+ * Short UTC date label ("Apr 21") from a Unix timestamp in seconds.
+ */
+export function unixDateLabel(timestamp: number): string {
+  return new Date(timestamp * 1000).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+}
