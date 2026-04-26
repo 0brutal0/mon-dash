@@ -1,4 +1,5 @@
 import type { TelegramConfig } from "./types";
+import { readFile } from "node:fs/promises";
 
 export async function sendTelegram(text: string, cfg: TelegramConfig): Promise<void> {
   if (cfg.dryRun) {
@@ -22,6 +23,37 @@ export async function sendTelegram(text: string, cfg: TelegramConfig): Promise<v
   if (!res.ok) {
     const body = await res.text();
     throw new Error(`Telegram sendMessage failed: ${res.status} ${body}`);
+  }
+}
+
+export async function sendTelegramPhoto(
+  imagePath: string,
+  cfg: TelegramConfig,
+  caption?: string
+): Promise<void> {
+  if (cfg.dryRun) {
+    console.log("─── dry run photo ───");
+    console.log(imagePath);
+    if (caption) console.log(caption);
+    console.log("─────────────────────");
+    return;
+  }
+
+  const image = await readFile(imagePath);
+  const form = new FormData();
+  form.append("chat_id", cfg.chatId);
+  form.append("photo", new Blob([image], { type: "image/png" }), "monad-news.png");
+  if (caption) form.append("caption", caption);
+
+  const url = `https://api.telegram.org/bot${cfg.botToken}/sendPhoto`;
+  const res = await fetch(url, {
+    method: "POST",
+    body: form,
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Telegram sendPhoto failed: ${res.status} ${body}`);
   }
 }
 

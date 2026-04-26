@@ -76,7 +76,13 @@ export async function getMonadNews(limit: number = 15): Promise<NewsItem[]> {
     // Sort by date descending (latest first)
     unique.sort((a, b) => b.date - a.date);
 
-    return unique.slice(0, limit).map((r) => r.item);
+    const selected = unique.slice(0, limit).map((r) => r.item);
+    return Promise.all(
+      selected.map(async (item) => ({
+        ...item,
+        url: await unwrapGoogleNewsUrl(item.url),
+      }))
+    );
   } catch {
     return [];
   }
@@ -166,6 +172,67 @@ function decodeEntities(s: string): string {
     .replace(/&#39;/g, "'")
     .replace(/&#x27;/g, "'")
     .replace(/&nbsp;/g, " ");
+}
+
+async function unwrapGoogleNewsUrl(url: string): Promise<string> {
+  if (!isGoogleNewsArticleUrl(url)) return url;
+
+  try {
+    const page = await fetch(url, {
+      headers: { "User-Agent": "Mozilla/5.0" },
+      next: { revalidate: 1800 },
+    });
+    if (!page.ok) return url;
+
+    const html = await page.text();
+    const payloadMatch = /<c-wiz\b[^>]*\bdata-p="([^"]+)"/.exec(html);
+    if (!payloadMatch) return url;
+
+    const payload = JSON.parse(
+      decodeEntities(payloadMatch[1]).replace('%.@.', '["garturlreq",')
+    );
+    if (!Array.isArray(payload)) return url;
+
+    const request = JSON.stringify([
+      [
+        [
+          "Fbv4je",
+          JSON.stringify(payload.slice(0, -6).concat(payload.slice(-2))),
+          null,
+          "generic",
+        ],
+      ],
+    ]);
+
+    const res = await fetch("https://news.google.com/_/DotsSplashUi/data/batchexecute", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+        "User-Agent": "Mozilla/5.0",
+      },
+      body: new URLSearchParams({ "f.req": request }),
+      next: { revalidate: 1800 },
+    });
+    if (!res.ok) return url;
+
+    const text = await res.text();
+    const outer = JSON.parse(text.replace(/^\)\]\}'\n?/, ""));
+    const inner = JSON.parse(outer?.[0]?.[2] ?? "[]");
+    const unwrapped = inner?.[1];
+
+    return typeof unwrapped === "string" && unwrapped.startsWith("http") ? unwrapped : url;
+  } catch {
+    return url;
+  }
+}
+
+function isGoogleNewsArticleUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.hostname === "news.google.com" && parsed.pathname.includes("/articles/");
+  } catch {
+    return false;
+  }
 }
 
 function formatPubDate(pubDate: string): string {

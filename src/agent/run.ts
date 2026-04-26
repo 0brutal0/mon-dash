@@ -8,11 +8,15 @@
 //   npx tsx src/agent/run.ts --evening --send     # send news digest to Telegram
 
 import { fetchMorningStats, fetchEveningNews } from "./snapshot";
-import { composeMorningTweet, composeNewsDigest } from "./compose";
-import { sendTelegram, sendTweetBlock } from "./telegram";
+import { composeMorningTweet, composeNewsDigest, composeNewsLinks } from "./compose";
+import { renderNewsCard } from "./render-news-card";
+import { sendTelegram, sendTelegramPhoto, sendTweetBlock } from "./telegram";
 import type { TelegramConfig } from "./types";
+import { readFileSync } from "node:fs";
 
 async function main() {
+  loadLocalEnv();
+
   const args = process.argv.slice(2);
   const mode = args.includes("--evening") ? "evening" : "morning";
   const dryRun = !args.includes("--send");
@@ -43,13 +47,36 @@ async function main() {
   } else {
     const news = await fetchEveningNews(5);
     console.log(`[agent] ${news.length} headlines in last 24h`);
-    const digest = composeNewsDigest(news);
-    if (!digest) {
+    const links = composeNewsLinks(news);
+    if (!links) {
       console.error("[agent] no news in last 24h — skipping send");
       return;
     }
-    await sendTelegram(digest, cfg);
-    console.log(`[agent] news digest ${dryRun ? "previewed" : "sent"}`);
+    const imagePath = await renderNewsCard(news);
+    await sendTelegramPhoto(imagePath, cfg, "Monad news");
+    await sendTelegram(links, cfg);
+    const digest = composeNewsDigest(news);
+    if (dryRun && digest) console.log(`[agent] legacy digest preview:\n${digest}`);
+    console.log(`[agent] news image + links ${dryRun ? "previewed" : "sent"}`);
+  }
+}
+
+function loadLocalEnv() {
+  if (process.env.GITHUB_ACTIONS) return;
+
+  try {
+    const text = readFileSync(".env.local", "utf8");
+    for (const line of text.split(/\r?\n/)) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#")) continue;
+      const eq = trimmed.indexOf("=");
+      if (eq === -1) continue;
+      const key = trimmed.slice(0, eq).trim();
+      const value = trimmed.slice(eq + 1).trim().replace(/^['"]|['"]$/g, "");
+      if (key && process.env[key] == null) process.env[key] = value;
+    }
+  } catch {
+    // GitHub Actions injects env vars directly; local .env.local is optional.
   }
 }
 

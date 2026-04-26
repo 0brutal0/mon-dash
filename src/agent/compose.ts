@@ -31,6 +31,13 @@ export function composeNewsDigest(items: NewsHeadline[]): string | null {
   return `${header}\n\n${body}`;
 }
 
+export function composeNewsLinks(items: NewsHeadline[]): string | null {
+  if (items.length === 0) return null;
+  const header = `Links | Monad news | ${formatDate(new Date().toISOString().slice(0, 10))}`;
+  const body = items.map((it, i) => `${i + 1}. ${it.title}\n${it.url}`).join("\n\n");
+  return `${header}\n\n${body}`;
+}
+
 function pct(v: number | null): string {
   if (v == null) return "";
   const sign = v >= 0 ? "+" : "";
